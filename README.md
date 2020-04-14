@@ -5,7 +5,7 @@
 go get github.com/ch-123/chrun
 ```
 
-使用命令：
+使用方法：
 ```
-在项目目录下运行 chrun
+chrun
 ```
