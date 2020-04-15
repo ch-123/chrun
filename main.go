@@ -44,6 +44,7 @@ func Exec(name string, args ...string) error {
 				exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprint(cmd.Process.Pid)).Run()
 				break
 			}
+			helper.Sleep(100)
 		}
 	}()
 	// 正常日志
@@ -73,6 +74,7 @@ func watch() {
 		fmt.Println(err)
 		return
 	}
+	defer watch.Close()
 	//添加要监控的对象，文件或文件夹
 	err = watch.Add("./")
 	if err != nil {
