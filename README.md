@@ -7,5 +7,5 @@ go get github.com/ch-123/hrun
 
 使用方法：
 ```
-chrun
+hrun
 ```
