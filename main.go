@@ -12,8 +12,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-var lasttime int64 //exec上次运行时间
-var pid int32      //exec进程pid
+var lastChangeTime int64                 //上次文件改变时间
+var runNum int                           //exec运行编号
+var taskkill chan bool = make(chan bool) //关闭上个进程
 
 func main() {
 	go Exec("go", "run", "main.go")
@@ -22,14 +23,12 @@ func main() {
 
 //运行命令
 func Exec(name string, args ...string) error {
-	if t := helper.Time() - lasttime; t < 500 {
-		return nil
-	}
-	lasttime = helper.Time()
-
 	fmt.Println("========== start ==========")
-	pid++
-	mpid := pid
+	go func() {
+		taskkill <- true
+	}()
+	runNum++
+	thisRunNum := runNum
 	cmd := exec.Command(name, args...)
 	stderr, _ := cmd.StderrPipe()
 	stdout, _ := cmd.StdoutPipe()
@@ -40,11 +39,11 @@ func Exec(name string, args ...string) error {
 	//每次运行 杀掉上次运行进程
 	go func() {
 		for {
-			if pid > mpid {
+			<-taskkill
+			if runNum > thisRunNum {
 				exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprint(cmd.Process.Pid)).Run()
-				break
+				return
 			}
-			helper.Sleep(100)
 		}
 	}()
 	// 正常日志
@@ -64,6 +63,20 @@ func Exec(name string, args ...string) error {
 	}()
 	cmd.Wait()
 	return nil
+}
+
+//文件发生改变
+func fileChange(op, name string, watch *fsnotify.Watcher) {
+	//500毫秒内发生多次文件改变  只执行一次
+	if t := helper.Time() - lastChangeTime; t < 500 {
+		return
+	}
+	lastChangeTime = helper.Time()
+	//新加目录 添加监听
+	if op == "CREATE" && !strings.Contains(name, ".") {
+		watch.Add("./" + name + "/")
+	}
+	Exec("go", "run", "main.go")
 }
 
 //监听文件变化
@@ -96,14 +109,9 @@ func watch() {
 	for {
 		select {
 		case ev, _ := <-watch.Events:
-			//新加目录 添加监听
-			if ev.Op.String() == "CREATE" && !strings.Contains(ev.Name, ".") {
-				watch.Add("./" + ev.Name + "/")
-			}
-			go Exec("go", "run", "main.go")
-
+			go fileChange(ev.Op.String(), ev.Name, watch)
 		case err := <-watch.Errors:
-			fmt.Println("chrun error:", err)
+			fmt.Println("监听文件错误:", err)
 		}
 
 	}
