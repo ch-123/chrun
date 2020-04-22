@@ -24,11 +24,11 @@ func main() {
 //运行命令
 func Exec(name string, args ...string) error {
 	fmt.Println("========== start ==========")
+	runNum++
+	thisRunNum := runNum
 	go func() {
 		taskkill <- true
 	}()
-	runNum++
-	thisRunNum := runNum
 	cmd := exec.Command(name, args...)
 	stderr, _ := cmd.StderrPipe()
 	stdout, _ := cmd.StdoutPipe()
